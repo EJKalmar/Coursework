@@ -1,0 +1,23 @@
+import sys
+
+r1 = sys.argv[1]
+r2 = sys.argv[2]
+f = open("interleaved.fastq", "w")
+
+#while True:
+    #line = r1.next()
+    #if line == "":
+        #break
+    #f.write(line + "\n")
+
+    #for i in range(3):
+        #f.write(r1.next() + "\n")
+    
+    #for i in range(4):
+        #f.write(r2.next() + "\n")
+
+for s1, s2 in zip(FASTQ(r1), FASTQ(r2)):
+    for line in s1:
+        f.write(str(line) + "\n")
+    for line in s2:
+        f.write(str(line) + "\n")

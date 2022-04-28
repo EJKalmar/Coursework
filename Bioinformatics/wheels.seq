@@ -1,0 +1,19 @@
+## V00762777 wheels
+# takes a string from the command line and outputs its Burrows Wheeler Transformation
+# usage: seqc -d wheels.seq dogwood
+
+import sys
+
+s = sys.argv[1] + '$'
+l = list[str]()
+result = ''
+
+for i in range(len(s)):
+    temp = s[i:] + s[:i]
+    l.append(temp)
+
+for string in sorted(l):
+    result += string[len(s)-1]
+
+print result
+    

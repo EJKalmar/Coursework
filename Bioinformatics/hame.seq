@@ -1,0 +1,21 @@
+## V00762777 hame
+# compute a hamming distance between two DNA sequences (given as command line arguments) by using only bitwise operations
+# assume strings only contain AGCT characters
+# usage: seqc -d hame.seq ACGTCG ACGACG
+
+
+import sys
+
+s1 = sys.argv[1]
+s2 = sys.argv[2]
+
+l = list[int]()
+d = {'A':0, 'C':1, 'G':2, 'T':3}
+
+for i in range(len(s1)):
+    i1 = d[s1[i]]
+    i2 = d[s2[i]]
+    result = i1 ^ i2
+    l.append(result)
+
+print len([value for value in l if value])

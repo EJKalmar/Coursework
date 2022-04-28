@@ -1,0 +1,160 @@
+import sys
+
+# For timing the program
+import python
+from time pyimport time() -> float
+start_time = time()
+
+# Stores paired read information
+# readname -> startpos, startdir, endpos, enddir, totalscore, startindex, endindex
+paired_reads = dict[str, tuple[int,int,int,int,float,int,int]]()
+
+# Stores unpaired read information
+# position, orientation -> score, index
+unpaired_reads = dict[tuple[int,int], tuple[float,int]]()
+
+# stores the indexes of duplicate reads
+duplicate_indexes = set[int]()
+
+index = 0
+for r in SAM(sys.argv[1]):
+    # Ignore unmapped reads
+    if (r._htsr.flag % 8) < 4:
+        # Calculate the mean quality score of the read
+        sum = 0.0
+        for char in r.qual:
+            sum += ord(char) - 33
+        score = sum/len(r.qual)
+
+        # Is the read reversed?
+        is_reversed = 0
+        if (r._htsr.flag % 32) > 16:
+            is_reversed = 1
+
+        # Find the unclipped 5' position of the read
+        start_pos = r.pos
+        i=0
+        for sz, op in r.cigar:
+            if op == 'S' and i == 0:
+                start_pos -= sz
+                break
+            i+=1
+
+        # If the read is reversed, the 5' position is the rightmost position of the mapping
+        if is_reversed:
+            end_pos = start_pos
+            for sz, op in r.cigar:
+                if op == 'S' or op == 'M' or op == 'I':
+                    end_pos +=sz
+            start_pos = end_pos
+
+        # Identify and store unpaired reads for later
+        if (r._htsr.flag % 2) == 0 or (r._htsr.flag % 16) >= 8:
+            # If there is already an unpaired read mapped to that segment
+            if (start_pos, is_reversed) in unpaired_reads:
+                # Then compare their scores. The highest score will be our new primary read at that segment, the other will have its index added to our list of duplicates
+                if score > unpaired_reads[start_pos, is_reversed][0]:
+                    duplicate_indexes.add(unpaired_reads[start_pos, is_reversed][1])
+                    unpaired_reads[start_pos, is_reversed] = (score, index)
+                elif score < unpaired_reads[start_pos, is_reversed][0]:
+                    duplicate_indexes.add(index)
+            # Otherwise consider the read to be primary for now
+            else:
+                unpaired_reads[start_pos, is_reversed] = (score, index)
+        
+        # Identify and store paired reads for later
+        else:
+            # If it's the first mate we've seen
+            if r.name not in paired_reads:
+                paired_reads[r.name] = (start_pos, is_reversed,0,0, score, index, -1)
+            # If it's mate is already in the dict
+            elif paired_reads[r.name][6] == -1:
+                if start_pos < paired_reads[r.name][0]:
+                    paired_reads[r.name] = (start_pos, is_reversed,paired_reads[r.name][0],paired_reads[r.name][1], score + paired_reads[r.name][4], index, paired_reads[r.name][5])
+                else:
+                    paired_reads[r.name] = (paired_reads[r.name][0], paired_reads[r.name][1],start_pos,is_reversed, score + paired_reads[r.name][4], paired_reads[r.name][5], index)
+    index += 1
+
+# Keeps track of the primary read score and indexes for each DNA segment
+# startpos, startdir, endpos, enddir -> totalscore, startindex, endindex
+primary_reads = dict[tuple[int,int,int,int],tuple[float,int,int]]()
+
+for read in paired_reads:
+    info = paired_reads[read]
+    startpos = info[0]
+    startdir = info[1]
+    endpos = info[2]
+    enddir = info[3]
+    score = info[4]
+    index1 = info[5]
+    index2 = info[6]
+    
+    # Identify duplicate and primary reads among paired reads
+    if index2 != -1:
+        if (startpos, startdir, endpos, enddir) not in primary_reads:
+            primary_reads[(startpos, startdir, endpos, enddir)] = (score, index1, index2)
+        else:
+            primary_read = primary_reads[(startpos, startdir, endpos, enddir)]
+            if score > primary_read[0]:
+                duplicate_indexes.add(primary_read[1])
+                duplicate_indexes.add(primary_read[2])
+                primary_reads[(startpos, startdir, endpos, enddir)] = (score, index1, index2)
+            elif score < primary_read[0]:
+                duplicate_indexes.add(index1)
+                duplicate_indexes.add(index2)
+    
+    # Identify paired reads whose mates are missing, compare them to unpaired reads
+    elif index2 == -1:
+        if (startpos, startdir) in unpaired_reads:
+            if score > unpaired_reads[startpos, startdir][0]:
+                duplicate_indexes.add(unpaired_reads[startpos, startdir][1])
+                unpaired_reads[startpos, startdir] = (score, index1)
+            elif score < unpaired_reads[startpos, startdir][0]:
+                duplicate_indexes.add(index1)
+        else:
+            unpaired_reads[startpos, startdir] = (score, index1)
+
+# Identify all unpaired reads that map to the same segment as paired reads
+for primary_read in primary_reads:
+    startpos = (primary_read[0],primary_read[1])
+    endpos = (primary_read[2],primary_read[3])
+    if startpos in unpaired_reads:
+        duplicate_indexes.add(unpaired_reads[startpos][1])
+    elif endpos in unpaired_reads:
+        duplicate_indexes.add(unpaired_reads[endpos][1])
+
+# Print metrics to stdout
+print "Number of duplicates:", len(duplicate_indexes)
+print "Time after identifying duplicate indexes: ", (time() - start_time), " seconds"
+print "Now writing to file..."
+
+# Write to file
+fin = open(sys.argv[1], "r")
+fout = open(sys.argv[2], "w")
+index = 0
+
+for line in fin:
+    args = line.split()
+    if args[0][0] == '@':
+        fout.write(line + '\n')
+    else:
+        s=''
+        # If the current read was identified as a duplicate, change the SAM flag
+        if index in duplicate_indexes:
+            # Make sure it's not already marked
+            if int(args[1]) < 1024:
+                args[1] = str(int(args[1]) + 1024)
+            for i in range(len(args)):
+                if i == (len(args) - 1):
+                    s += args[i] + "\n"
+                else:
+                    s += args[i] + "\t"
+            fout.write(s)
+        else:
+            fout.write(line + "\n")
+        index += 1
+
+fin.close()
+fout.close()
+
+print "Finished. Total Runtime: ", (time() - start_time), " seconds"

@@ -1,0 +1,41 @@
+## V00762777 align
+# aligns two sequences given through the command line.
+# usage: seqc -d align ACGCGATAGTTTCTTAAAA ACCTTATTATCGAAAAAAAA
+
+import sys
+
+seq1 = seq(sys.argv[1])
+seq2 = seq(sys.argv[2])
+
+aln = seq1 @ seq2
+
+print aln.score, aln.cigar
+
+index = 0
+s1 = str(seq1)
+s2 = ''
+s3 = str(seq2)
+
+for i,c in aln.cigar:
+    if c == 'M':
+        index += i
+    elif c == 'D':
+        temp = s1[index:]
+        s1 = s1[:index] + '-' * i
+        s1 = s1 + temp
+        index += i
+    elif c == 'I':
+        temp = s3[index:]
+        s3 = s3[:index] + '-' * i
+        s3 = s3 + temp
+        index +=i
+
+for i in range(len(s1)):
+    if s1[i] == s3[i]:
+        s2 = s2 + '|'
+    else:
+        s2 = s2 + '*'
+
+print s1
+print s2
+print s3

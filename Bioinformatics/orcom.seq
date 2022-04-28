@@ -1,0 +1,34 @@
+## V00762777 orcom
+# given a FASTQ file, detect the reads whose canonical minimizer differs from their ORCOM minimizer
+# for such reads, it prints their name, canonical minimzer, and ORCOM minimzer
+# a canonical minimizer is a minimal 12-mer within a read or its reverse complement
+# an ORCOM minimizer is a minimal 12-mer (or its reverse complement) that contains no more than 2 identical nucleotides in a row
+# usage: seqc -d orcom.seq test.fq
+
+import sys
+
+type K = Kmer[12]
+stride = 1
+init = 'ZZZZZZZZZZZZ'
+
+for s in FASTQ(sys.argv[1]):
+    canon_name = ''
+    canon_seq = init
+    orcom_name = ''
+    orcom_seq = init
+    for seq in s.read.kmers[K](stride):
+        if str(seq) < canon_seq:
+            canon_seq = str(seq)
+            canon_name = s.name
+        if str(~seq) < canon_seq:
+            canon_seq = str(~seq)
+            canon_name = s.name
+        if str(seq) < orcom_seq and 'AAA' not in str(seq) and 'TTT' not in str(seq) and 'CCC' not in str(seq) and 'GGG' not in str(seq):
+            orcom_seq = str(seq)
+            orcom_name = s.name
+        if str(~seq) < orcom_seq and 'AAA' not in str(~seq) and 'TTT' not in str(~seq) and 'CCC' not in str(~seq) and 'GGG' not in str(~seq):
+            orcom_seq = str(~seq)
+            orcom_name = s.name
+    if canon_seq != orcom_seq:
+        print s.name, ('' if canon_seq == init else canon_seq), ('' if orcom_seq == init else orcom_seq)
+

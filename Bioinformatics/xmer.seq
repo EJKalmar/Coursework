@@ -1,0 +1,33 @@
+## V00762777 xmer
+# reads a FASTA file and 
+# 1. prints all 10-mers to xmer-1.txt in lexographical order, ensuring no kmer is printed twice.
+# 2. prints all 10-mers and their frequencies to xmer-2.txt, sorted by frequency
+
+# usage: seqc -d xmer.seq chr1-low.fa
+
+import sys
+
+type K = Kmer[20]
+stride = 1
+d = dict[K, int]()
+
+for read in FASTA(sys.argv[1], fai=False) |> seqs:
+    for subseq in read.kmers[K](stride):
+        if subseq in d:
+            d[subseq] += 1
+        else:
+            d[subseq] = 1
+
+f1 = open("xmer-1.txt", "w")
+for k in sorted (d.keys()):
+    f1.write(str(k))
+    f1.write("\n")
+f1.close()
+
+f2 = open("xmer-2.txt", "w")
+for v,k in reversed(sorted((d[k],k) for k in d)):
+   f2.write(str(k))
+   f2.write(" ")
+   f2.write(str(v))
+   f2.write("\n")
+f2.close()

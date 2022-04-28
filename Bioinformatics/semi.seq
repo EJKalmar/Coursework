@@ -1,0 +1,79 @@
+## V00762777 semi
+# calculate and print the semi-global alignment between 2 sequences
+# uses a match score of -1, mismatch score of 1, gap score of 2
+# usage: seqc-d semi.seq CCAAGTCAAGTCGG GTTCAAATCGGGCTT
+
+import sys
+
+seq1 = sys.argv[1]
+seq2 = sys.argv[2]
+params = [-1,1,2]
+
+def sg(A: str, B: str, Match: int, mismatch: int, gap: int):
+    dim = max(len(A),len(B))
+    M = [[0 for _ in range (len(A)+1)] for _ in range (len(B)+1)]
+    min_score = (0,-1,-1)
+    for i in range(len(B)):
+        for j in range(len(A)):
+            M[i + 1][j + 1] = min(
+                M[i][j] + (Match if seq1[j] == seq2[i] else mismatch),
+                M[i][j + 1] + gap,
+                M[i + 1][j] + gap
+            )
+            if M[i+1][j+1] < min_score[2]:
+                min_score = (i+1,j+1,M[i+1][j+1])
+    return M
+
+M = sg(seq1, seq2, params[0], params[1], params[2])
+    
+min_score = (0,0,1)
+for i in range(len(seq2)):
+    if M[i+1][len(seq1)] < min_score[2]:
+        min_score = (i,len(seq1),M[i][len(seq1)])
+
+str1 = ''
+str2 = ''
+
+score = 0
+i = min_score[0]
+j = min_score[1]
+
+while j < len(seq1):
+    str1 = seq1[j] + str1
+    str2 += '-'
+    j += 1
+while i < len(seq2):
+    str1 += '-'
+    str2 = seq2[i] + str2
+    i += 1
+
+i = min_score[0]
+j = min_score[1]
+
+while (i > 0 and j > 0):
+    if M[i][j] == M[i-1][j-1] + (params[0] if seq1[j-1] == seq2[i-1] else params[1]):
+        str1 += seq1[j-1]
+        str2 += seq2[i-1]
+        i -= 1
+        j -= 1
+    elif M[i][j] == M[i][j-1] + params[2]:
+        str1 += seq1[j-1]
+        str2 += '-'
+        j -= 1
+    elif M[i][j] == M[i-1][j] + params[2]:   
+        str1 += '-'
+        str2 += seq2[i-1]
+        i -= 1
+
+while j > 0:
+    str1 += seq1[j-1]
+    str2 += '-'
+    j -= 1
+while i > 0:
+    str1 += '-'
+    str2 += seq2[i-1]
+    i -= 1
+
+print "Score:", min_score[2]
+print str1[::-1]
+print str2[::-1]

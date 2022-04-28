@@ -1,0 +1,40 @@
+## V00762777 overlap
+# given a small FASTA file, generate and plot an overlap graph from its reads
+# output overlap.png
+# 2 nodes are connected if they have a perfect prefix-suffix match of size 10 or more
+# usage: seqc-d overlap.seq reads2.fa
+import sys
+import python
+
+l = list[str]()
+e = list[tuple[str,str,int]]()
+
+for r in FASTA(sys.argv[1], fai = False):
+    seq = str(r.seq)
+    l.append(seq)
+
+def find_overlap(a: str, b: str):
+    x = a[-11:]
+    for i in reversed(range(len(b)-11)):
+        if b[i:i+11] == x:
+            y = b[:i+11]
+            if a[-len(y):] == y:
+                return (a,b,len(y))
+    return (a,b,0)
+
+for seq1 in l:
+    for seq2 in l:
+        if seq1 != seq2:
+            edge = find_overlap(seq1, seq2)
+            if edge != (seq1,seq2,0):
+                e.append(edge)
+
+
+pydef graphviz(edges: list[tuple[str,str,int]]):
+    import graphviz
+    g = graphviz.Digraph(format='png')
+    for src, dst, wght in edges:
+        g.edge(src, dst, label = str(wght))
+    g.render('overlap')
+
+graphviz(e)

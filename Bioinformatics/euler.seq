@@ -1,0 +1,41 @@
+## V00762777 euler
+# the assembled contig is a genome of SARS-CoV-2
+# load a set of FASTA reads in a de bruijn graph
+# assemble the reads by finding Eulerian walks in the graph and print the largest contig found
+# usage: seqc -d euler.seq reads.fa
+
+import sys
+import python
+k = 12
+
+l = list[str]()
+e = list[tuple[str,str]]()
+
+#original algorithm studied:
+# https://www.coursera.org/lecture/dna-sequencing/practical-building-a-de-bruijn-graph-4SRdc
+def dbg(st, k):
+    for i in range(len(st) - k + 1):
+        e.append((st[i:i+k-1], st[i+1:i+k]))
+        if st[i:i+k-1] not in l:
+            l.append(st[i:i+k-1]) 
+        if st[i+1:i+k] not in l:
+            l.append(st[i+1:i+k])
+
+for r in FASTA(sys.argv[1], fai = False):
+    seq = str(r.seq)
+    dbg(seq,k)
+
+
+contig = l[0]
+current = l[0]
+while len(e) > 0:
+    for n1, n2 in e:
+        if n1 == current:
+            contig += n2[-1]
+            e.remove((n1,n2))
+            current = n2
+            break
+print contig
+
+
+

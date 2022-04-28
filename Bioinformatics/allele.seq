@@ -1,0 +1,74 @@
+## V00762777 allele
+# given a SAM file and corresponding reference genome, analyze the alignments and output heterozygous and non-reference homozygous genotypes
+# a locus is heterozygous if it is covered with at least 2 alleles, each covering more than 40% of the reads at the locus
+# a locus is homozygous if there is an allele having more than 80% total coverage
+# usage: seqc -d allele.seq chr22.fa test.sam
+
+import sys
+
+ref = ''
+
+for r in FASTA(sys.argv[1], fai=False):
+    ref = str(r.seq)
+l = list[str]()
+d = dict[int,list[str]]()
+
+#for i in range(39999931,40002006):
+    #d[i] = ['ref: ' + ref[i].upper()]
+
+for r in SAM(sys.argv[2]):
+    read = str(r.read)
+    read_pos = 0
+    ref_pos = r.pos
+    #print r.pos
+    for sz, op in r.cigar:
+        match op:
+            case 'M' or '=' or 'X':
+                #if ref[ref_pos:ref_pos + sz].upper() != read[read_pos:read_pos + sz]:
+                    #print 'Mismatch:'
+                    #print ref[ref_pos:ref_pos + sz].upper()
+                    #print read[read_pos:read_pos + sz]
+                for i in range(0, sz):
+                    if i+ref_pos not in d:
+                        d[i+ref_pos] = [read[i+read_pos]]
+                    else:
+                        d[i+ref_pos].append(read[i+read_pos])
+                read_pos += sz
+                ref_pos += sz
+            case 'I' or 'S': read_pos += sz
+            case 'D' or 'N': ref_pos += sz
+            case _: pass
+
+#keylist = d.keys()
+#keylist = sorted(keylist)
+#for key in keylist:
+    #print key, d[key]
+#for key in sorted(d):
+    #print key, d[key]
+for pos in sorted(d):
+    mismatch = False
+    bref = ref[pos].upper()
+    x = ["A","C","G","T"]
+    x.remove(bref)
+    for element in x:
+        if element in d[pos]:
+            mismatch = True
+            break
+    #print bref, x, mismatch
+    if (mismatch==True):
+        #print pos, bref, d[pos]
+        A = 1.0*d[pos].count("A")/len(d[pos])
+        T = 1.0*d[pos].count("T")/len(d[pos])
+        C = 1.0*d[pos].count("C")/len(d[pos])
+        G = 1.0*d[pos].count("G")/len(d[pos])
+        #print A, T, C, G
+        if A > 0.8 and bref != "A": print "chr22", pos + 1, "HOM A/A"
+        elif T > 0.8 and bref != "T": print "chr22", pos + 1, "HOM T/T"
+        elif C > 0.8 and bref != "C": print "chr22", pos + 1, "HOM C/C"
+        elif G > 0.8 and bref != "G": print "chr22", pos + 1, "HOM G/G"
+        elif A > 0.4 and T > 0.4: print "chr22", pos + 1, "HET A/T"
+        elif A > 0.4 and C > 0.4: print "chr22", pos + 1, "HET A/C"
+        elif A > 0.4 and G > 0.4: print "chr22", pos + 1, "HET A/G"
+        elif C > 0.4 and G > 0.4: print "chr22", pos + 1, "HET C/G"
+        elif C > 0.4 and T > 0.4: print "chr22", pos + 1, "HET C/T"
+        elif G > 0.4 and T > 0.4: print "chr22", pos + 1, "HET G/T"

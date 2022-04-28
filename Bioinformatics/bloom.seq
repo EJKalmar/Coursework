@@ -1,0 +1,50 @@
+## V00762777 bloom
+# count all 20-mers in a given FASTA file
+# uses a counting bloom filter with 3 murmurhash2 hash functions
+# outputs all k-mers whose approximate count is greater than the second command line argument
+# usage: seqc -d bloom.seq test.fa 400
+
+import sys
+
+type K = Kmer[20]
+stride = 1
+
+p = 0xFFFF
+a = [0] * p
+
+def MMH(k: int, seed: int):
+    m = 0xc6a4a7935bd1e995
+    h = seed ^ (8*m)
+    r = 47
+    
+    k *= m
+    k ^= k >> r
+    k *= m
+
+    h ^= k
+    h *= m
+    h *= m
+
+    h ^= h >> r
+    h *= m
+    h ^= h >> r
+    
+    return h % p
+
+num = int(sys.argv[2])
+d = dict[str,int]()
+
+for r in FASTA(sys.argv[1], fai=False):
+    for kmer in r.seq.kmers[K](stride):
+        val = int(kmer.as_int())
+        h1 = MMH(val,1117)
+        h2 = MMH(val,3331)
+        h3 = MMH(val,7789)
+        a[h1]+=1
+        a[h2]+=1
+        a[h3]+=1
+        if a[h1] > num and a[h2] > num and a[h3] > num:
+            d[str(kmer)] = min(a[h1], a[h2], a[h3])
+
+for v,k in reversed(sorted((d[k],k) for k in d)):
+   print v, k

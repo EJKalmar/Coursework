@@ -1,0 +1,49 @@
+## V00762777 qc
+# counts and prints the number of paired-end reads in an interleaved FASTQ that pass and fail quality control
+# a pair of reads fails the qc if a read or its mate contains one of the universal adapters (AGATCGGAAGAG or its reverse complement) or a 12-mer that has a Hamming distance of 1 to any of the universal adapters, or a mean quality score of a read or its mate is lower than 20 
+# prints the number of reads that failed each filter. The adapter filter takes precedence over the quality score.
+
+# usage: seqc -d qc.seq interleaved-small.fastq
+
+import sys
+
+A = k'AGATCGGAAGAG'
+B = k'GAGAAGGCTAGA'
+
+type K = Kmer[12]
+
+pair = 0
+
+fail_a = False
+fail_q = False
+
+PASS = 0
+FAIL_ADAPTER = 0
+FAIL_QUALITY = 0
+
+for s in FASTQ(sys.argv[1]):
+    for seq in s.read.kmers[K](1):
+        if seq == A or seq == B or abs(seq-A) == 1 or abs(seq-B) == 1:
+            fail_a = True
+    sum = 0.0
+    for char in s.qual:
+        sum += ord(char) - 33
+    if sum/len(s.qual) < 20:
+        fail_q = True
+    if pair == 0:
+        pair = 1
+    else:
+        if fail_a:
+            FAIL_ADAPTER += 1
+        elif fail_q:
+            FAIL_QUALITY += 1
+        else:
+            PASS += 1
+        fail_a = False
+        fail_q = False
+        pair = 0
+
+print "PASS=" + str(PASS)
+print "FAIL_ADAPTER=" + str(FAIL_ADAPTER)
+print "FAIL_QUALITY=" + str(FAIL_QUALITY)
+    
